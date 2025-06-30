@@ -52,6 +52,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'CP Mate Server is running' });
 });
 
+// Add root route for deployment health check
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'CP Mate Backend Root' });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
