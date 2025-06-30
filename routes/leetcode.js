@@ -2,6 +2,52 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
+// GET /api/leetcode/contest/:username (alias for /:username)
+router.get('/contest/:username', async (req, res) => {
+  const { username } = req.params;
+
+  const query = `
+    query userContestRankingInfo($username: String!) {
+      userContestRanking(username: $username) {
+        attendedContestsCount
+        rating
+        globalRanking
+        totalParticipants
+        topPercentage
+      }
+      userContestRankingHistory(username: $username) {
+        contest {
+          title
+          startTime
+        }
+        rating
+        ranking
+        trendDirection
+      }
+    }
+  `;
+
+  const variables = { username };
+
+  try {
+    const response = await axios.post(
+      'https://leetcode.com/graphql',
+      { query, variables },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Referer': 'https://leetcode.com',
+          'Origin': 'https://leetcode.com',
+        },
+      }
+    );
+    return res.status(200).json(response.data.data);
+  } catch (error) {
+    console.error('LeetCode API error:', error.message, error.response?.data);
+    return res.status(500).json({ error: 'Failed to fetch data from LeetCode' });
+  }
+});
+
 // GET /api/leetcode/:username
 router.get('/:username', async (req, res) => {
   const { username } = req.params;
