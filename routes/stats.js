@@ -261,6 +261,23 @@ const processCodeforcesData = async (userId, handle, data) => {
     count
   }));
 
+  // Calculate unique problems solved in official contests
+  const uniqueSolved = new Set();
+  submissions.forEach(s => {
+    if (
+      s.verdict === 'OK' &&
+      s.problem &&
+      s.problem.contestId &&
+      s.problem.contestId < 100000 &&
+      s.author && s.author.participantType === 'CONTESTANT'
+    ) {
+      uniqueSolved.add(`${s.problem.contestId}-${s.problem.index}`);
+    }
+  });
+
+  console.log('Codeforces unique solved problems:', Array.from(uniqueSolved));
+  console.log('Codeforces unique solved count:', uniqueSolved.size);
+
   const statsData = {
     userId,
     platform: 'codeforces',
@@ -272,7 +289,7 @@ const processCodeforcesData = async (userId, handle, data) => {
     },
     problems: {
       total: submissions.length,
-      solved: submissions.filter(s => s.verdict === 'OK').length,
+      solved: uniqueSolved.size,
       attempted: submissions.length,
       byTag
     },

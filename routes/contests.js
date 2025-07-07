@@ -51,13 +51,14 @@ router.get('/upcoming', async (req, res) => {
   try {
     // Fetch Codeforces
     const cfRes = await axios.get('https://codeforces.com/api/contest.list?gym=false');
+    console.log('Raw Codeforces API data:', cfRes.data);
     const now = Date.now() / 1000;
     const cfUpcoming = cfRes.data.result.filter(c => c.phase === 'BEFORE' && c.startTimeSeconds > now)
       .map(c => ({
         id: c.id,
         name: c.name,
         platform: 'Codeforces',
-        start: new Date(c.startTimeSeconds * 1000),
+        start: new Date(c.startTimeSeconds * 1000).toISOString(), // Always send as UTC ISO string
         duration: c.durationSeconds / 3600,
         url: `https://codeforces.com/contest/${c.id}`
       }));
@@ -90,13 +91,14 @@ router.get('/upcoming', async (req, res) => {
           },
         }
       );
+      console.log('Raw LeetCode API data:', lcRes.data);
       lcUpcoming = (lcRes.data.data.contestCalendar.contests || [])
         .filter(c => c.startTime * 1000 > Date.now())
         .map(c => ({
           id: c.titleSlug,
           name: c.title,
           platform: 'LeetCode',
-          start: new Date(c.startTime * 1000),
+          start: new Date(c.startTime * 1000).toISOString(),
           duration: c.duration / 3600,
           url: `https://leetcode.com/contest/${c.titleSlug}`
         }));
