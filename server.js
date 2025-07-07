@@ -16,6 +16,8 @@ const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
+
+// CORS configuration
 const allowedOrigins = [
   'http://localhost:5173',
   'https://cp-mate-frontend.vercel.app'
@@ -30,7 +32,19 @@ app.use(cors({
       return callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200 // For legacy browser support
+}));
+
+// Handle preflight OPTIONS requests for all routes
+app.options('*', cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 }));
 
 // Rate limiting
