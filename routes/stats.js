@@ -66,16 +66,34 @@ const fetchLeetCodeData = async (username) => {
 // Fetch Codeforces data
 const fetchCodeforcesData = async (handle) => {
   try {
-    const [userInfo, userRating, userStatus] = await Promise.all([
+    // Fetch user info and rating history as before
+    const [userInfo, userRating] = await Promise.all([
       axios.get(`https://codeforces.com/api/user.info?handles=${handle}`),
-      axios.get(`https://codeforces.com/api/user.rating?handle=${handle}`),
-      axios.get(`https://codeforces.com/api/user.status?handle=${handle}&count=1000`)
+      axios.get(`https://codeforces.com/api/user.rating?handle=${handle}`)
     ]);
+
+    // Fetch all submissions in batches of 1000
+    let submissions = [];
+    let from = 1;
+    const batchSize = 1000;
+    let totalFetched = 0;
+    let keepFetching = true;
+    while (keepFetching) {
+      const userStatus = await axios.get(`https://codeforces.com/api/user.status?handle=${handle}&from=${from}&count=${batchSize}`);
+      const batch = userStatus.data.result;
+      submissions = submissions.concat(batch);
+      totalFetched += batch.length;
+      if (batch.length < batchSize) {
+        keepFetching = false;
+      } else {
+        from += batchSize;
+      }
+    }
 
     return {
       userInfo: userInfo.data.result[0],
       ratingHistory: userRating.data.result,
-      submissions: userStatus.data.result
+      submissions
     };
   } catch (error) {
     console.error('Codeforces API error:', error);
@@ -261,22 +279,18 @@ const processCodeforcesData = async (userId, handle, data) => {
     count
   }));
 
-  // Calculate unique problems solved in official contests
+  // Calculate unique problems solved (all problems with verdict 'OK')
   const uniqueSolved = new Set();
   submissions.forEach(s => {
     if (
       s.verdict === 'OK' &&
       s.problem &&
       s.problem.contestId &&
-      s.problem.contestId < 100000 &&
-      s.author && s.author.participantType === 'CONTESTANT'
+      s.problem.index
     ) {
       uniqueSolved.add(`${s.problem.contestId}-${s.problem.index}`);
     }
   });
-
-  console.log('Codeforces unique solved problems:', Array.from(uniqueSolved));
-  console.log('Codeforces unique solved count:', uniqueSolved.size);
 
   const statsData = {
     userId,

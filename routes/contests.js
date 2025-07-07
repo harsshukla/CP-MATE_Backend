@@ -69,13 +69,12 @@ router.get('/upcoming', async (req, res) => {
       const graphqlQuery = {
         query: `
           query {
-            contestCalendar {
-              contests {
-                title
-                titleSlug
-                startTime
-                duration
-              }
+            allContests {
+              title
+              titleSlug
+              startTime
+              duration
+              isVirtual
             }
           }
         `
@@ -92,14 +91,16 @@ router.get('/upcoming', async (req, res) => {
         }
       );
       console.log('Raw LeetCode API data:', lcRes.data);
-      lcUpcoming = (lcRes.data.data.contestCalendar.contests || [])
+      lcUpcoming = (lcRes.data.data.allContests || [])
         .filter(c => c.startTime * 1000 > Date.now())
         .map(c => ({
           id: c.titleSlug,
           name: c.title,
+          titleSlug: c.titleSlug,
           platform: 'LeetCode',
           start: new Date(c.startTime * 1000).toISOString(),
           duration: c.duration / 3600,
+          isVirtual: c.isVirtual,
           url: `https://leetcode.com/contest/${c.titleSlug}`
         }));
     } catch (err) {
