@@ -201,9 +201,11 @@ router.get('/google/callback',
   (req, res) => {
     // Generate JWT and redirect to frontend with token
     const token = generateToken(req.user._id);
-    // Change the URL below to your frontend login/redirect page
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173/login';
-    res.redirect(`${frontendUrl}?token=${token}`);
+    // Use NODE_ENV to determine frontend URL
+    const frontendUrl = process.env.NODE_ENV === 'production'
+      ? 'https://cp-mate-frontend.vercel.app'
+      : 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/login?token=${token}`);
   }
 );
 
