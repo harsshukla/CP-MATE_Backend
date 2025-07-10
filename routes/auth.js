@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
+const passport = require('passport');
 
 const router = express.Router();
 
@@ -190,5 +191,20 @@ router.put('/handles', auth, [
     res.status(500).json({ error: 'Server error updating handles' });
   }
 });
+
+// Google OAuth login
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// Google OAuth callback
+router.get('/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login', session: false }),
+  (req, res) => {
+    // Generate JWT and redirect to frontend with token
+    const token = generateToken(req.user._id);
+    // Change the URL below to your frontend login/redirect page
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173/login';
+    res.redirect(`${frontendUrl}?token=${token}`);
+  }
+);
 
 module.exports = router; 

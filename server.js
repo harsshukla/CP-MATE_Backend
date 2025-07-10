@@ -3,8 +3,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 require('dotenv').config();
 
+const User = require('./models/User');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const statsRoutes = require('./routes/stats');
@@ -16,6 +20,74 @@ const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Passport Google Strategy
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.NODE_ENV === 'production' 
+    ? 'https://cp-mate-backend.onrender.com/api/auth/google/callback'
+    : 'http://localhost:5000/api/auth/google/callback',
+  scope: ['profile', 'email']
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    // Check if user already exists
+    let user = await User.findOne({ email: profile.emails[0].value });
+    
+    if (user) {
+      // User exists, update last login
+      user.lastActive = new Date();
+      await user.save();
+      return done(null, user);
+    }
+    
+    // Create new user
+    user = new User({
+      username: profile.displayName.replace(/\s+/g, '').toLowerCase() + Math.random().toString(36).substr(2, 5),
+      email: profile.emails[0].value,
+      password: 'google-oauth-' + Math.random().toString(36).substr(2, 15), // Random password for Google users
+      profile: {
+        name: profile.displayName,
+        avatar: profile.photos[0]?.value
+      },
+      isVerified: true
+    });
+    
+    await user.save();
+    return done(null, user);
+  } catch (error) {
+    return done(error, null);
+  }
+}));
+
+// Passport serialize/deserialize
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+ 
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 // CORS configuration
 const allowedOrigins = [
@@ -72,6 +144,34 @@ app.use('/api/user', userRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/contests', contestsRoutes);
 app.use('/api/leetcode', leetcodeRoutes);
+
+// Google OAuth Routes
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+ 
+app.get('/api/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    try {
+      // Generate JWT token
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign(
+        { userId: req.user._id },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '7d' }
+      );
+      
+      // Redirect to frontend with token
+      const frontendUrl = process.env.NODE_ENV === 'production'
+        ? 'https://cp-mate-frontend.vercel.app'
+        : 'http://localhost:5173';
+      
+      res.redirect(`${frontendUrl}/login?token=${token}`);
+    } catch (error) {
+      console.error('Google OAuth callback error:', error);
+      res.redirect('/login?error=authentication_failed');
+    }
+  }
+);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
